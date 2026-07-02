@@ -1,0 +1,29 @@
+name: Daily data refresh
+on:
+  schedule:
+    - cron: "30 13 * * *"   # daily 13:30 UTC (after US market data updates)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Fetch data
+        run: python fetch_data.py
+      - name: Compute index
+        run: python compute.py
+      - name: Commit & push
+        run: |
+          git config user.name "bubble-bot"
+          git config user.email "actions@github.com"
+          git add data/ docs/data.json
+          git diff --cached --quiet || git commit -m "Data refresh $(date -u +%F)"
+          git push

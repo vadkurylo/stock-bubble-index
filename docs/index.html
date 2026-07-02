@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Bubble Index</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2d333b;
+    --text:#e6edf3; --muted:#8b949e;
+    --green:#3fb950; --lime:#a3d94e; --yellow:#e3b341; --orange:#f0883e; --red:#f85149;
+    --accent:#58a6ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding-bottom:60px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  header{padding:36px 0 8px;text-align:center}
+  h1{font-size:30px;letter-spacing:.5px}
+  h1 .q{color:var(--muted);font-weight:400}
+  .sub{color:var(--muted);margin-top:6px;font-size:14px}
+  .gaugebox{text-align:center;padding:18px 0 4px}
+  .verdict{font-size:22px;font-weight:600;margin-top:-8px}
+  .verdict small{display:block;font-size:14px;color:var(--muted);font-weight:400;margin-top:4px}
+  .pills{display:flex;justify-content:center;gap:10px;margin:16px 0 6px;flex-wrap:wrap}
+  .pill{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;color:var(--muted)}
+  .pill b{color:var(--text)}
+  section{margin-top:38px}
+  h2{font-size:20px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:8px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .card h3{font-size:16px;display:flex;justify-content:space-between;align-items:center}
+  .score{font-size:15px;font-weight:700;padding:2px 10px;border-radius:14px;color:#0d1117}
+  .meta{font-size:12.5px;color:var(--muted)}
+  .desc{font-size:13.5px;color:var(--muted)}
+  .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:8px;border:1px solid var(--border);color:var(--muted);margin-left:6px;vertical-align:1px}
+  .badge.est{border-color:var(--orange);color:var(--orange)}
+  .badge.ath{border-color:var(--red);color:var(--red)}
+  .toggle{font-size:12px;color:var(--accent);cursor:pointer;user-select:none}
+  .chartbox{position:relative;height:150px}
+  .bigchart{position:relative;height:340px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+  th{color:var(--muted);font-weight:600}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .bands{display:flex;border-radius:8px;overflow:hidden;margin:10px 0;font-size:12px;text-align:center;color:#0d1117;font-weight:600}
+  .bands div{padding:6px 2px}
+  .note{font-size:13px;color:var(--muted);margin-top:10px}
+  .zoomrow{font-size:13px;color:var(--muted);margin-bottom:10px;display:flex;gap:6px;align-items:center}
+  .zbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 12px;font-size:12.5px;cursor:pointer}
+  .zbtn.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600}
+  .rainbowlegend{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+  .gradbar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;font-size:11px}
+  #gradstrip{width:260px;height:12px;border-radius:6px;background:linear-gradient(90deg,#0d5423,#3fb950,#e3b341,#d2502a,#500a0a)}
+  .warn{border-left:3px solid var(--orange);padding:10px 14px;background:var(--panel2);border-radius:6px;font-size:13.5px;color:var(--muted);margin-top:14px}
+  footer{margin-top:44px;text-align:center;color:var(--muted);font-size:12.5px}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Stock Bubble Index <span class="q">— is the US market in a bubble?</span></h1>
+  <div class="sub">9 valuation, leverage &amp; structure signals blended into one 0–100 score. Inspired by <a href="https://colintalkscrypto.com/cbbi/" target="_blank">CBBI</a>.</div>
+</header>
+
+<div class="gaugebox">
+  <svg id="gauge" width="360" height="215" viewBox="0 0 360 215"></svg>
+  <div class="verdict" id="verdict"></div>
+</div>
+<div class="pills" id="pills"></div>
+
+<section>
+  <h2>Historical chart — Bubble Index vs S&amp;P 500</h2>
+  <div class="panel">
+    <div class="zoomrow">Zoom
+      <button class="zbtn" data-m="60">5Y</button><button class="zbtn" data-m="120">10Y</button><button class="zbtn" data-m="300">25Y</button><button class="zbtn active" data-m="0">ALL</button>
+    </div>
+    <div class="bigchart"><canvas id="compChart"></canvas></div>
+    <div class="bands" id="bandsbar"></div>
+    <div class="rainbowlegend">
+      The <b>colored line</b> is the Bubble Index (left axis) — green when conditions are depressed, red in bubble territory · the thin <span style="color:var(--accent)">blue line</span> is the S&amp;P 500 (log scale, right axis) for reference
+      <div class="gradbar"><span>0</span><div id="gradstrip"></div><span>100</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The 9 metrics</h2>
+  <div class="grid" id="cards"></div>
+</section>
+
+<section>
+  <h2>Methodology</h2>
+  <div class="panel">
+    <p>Each metric is converted to a <b>0–100 score</b> by ranking today's value against a <b>rolling 20–30 year window</b> of its own history (point-in-time, no lookahead) — the market is compared against the last generation, not against 1955, so the score adapts to structural regime shifts. Slow valuation metrics (CAPE, trailing P/E, household allocation, Buffett Indicator) blend the <b>level</b> percentile (60%) with the <b>3-year rate-of-change</b> percentile (40%): bubbles are expensive <i>and accelerating</i> — 1993 was expensive but calm, 1999 was both, and the index tells them apart. The equity risk premium is inverted (low premium = expensive). Margin debt blends its detrended level (50%) with its 12-month growth rate (50%), because bubbles show up in the <i>acceleration</i> of leverage.</p>
+    <br>
+    <p>The composite is a weighted average, renormalized over available metrics — if a source goes stale (no update within 2× its normal cadence), it is dropped rather than allowed to freeze the index. Weights were tuned against ten historical episodes (1982, 1987, 1993, 1995, 1999–2000, 2004, 2007, 2009, 2013, 2021), blended 50/50 with structural priors and capped, so no single metric can dominate. The headline number is smoothed over 3 months. The unweighted <b>median</b> of the 9 scores is shown as a robustness check: a large gap between weighted and median means a few heavy metrics drive the reading.</p>
+    <br>
+    <table id="wtable">
+      <tr><th>Metric</th><th>Category</th><th class="num" style="text-align:right">Weight</th><th>Transform</th></tr>
+    </table>
+    <div class="note"><b>Backtest anchors</b> (point-in-time): Aug 1982 → 18 · Aug 1987 → <b>77</b> (warns before Black Monday) · Jun 1993 → 69 · Mar 2000 → <b>95</b> (all-time high of the index) · Jun 2004 → 48 · Oct 2007 → 58 · Mar 2009 → 21 (trailing P/E spiked to ~120 on collapsed earnings, a known failure mode the ensemble absorbs) · Jun 2013 → 49 · Dec 2021 → 84.</div>
+    <div class="warn"><b>What this is not:</b> a timing tool. Valuation metrics are poor short-term timers — the market stayed "overvalued" from 1996 to 2000. Read the score as "how stretched are conditions versus history," not "sell now." Nothing here is investment advice.</div>
+    <div class="warn" style="border-color:var(--accent)"><b>Data provenance:</b> CAPE, P/E, P/S, S&amp;P 500 prices (multpl.com); GDP, 10-year Treasury, corporate equities market value, household equity allocation (FRED); current margin debt (FINRA, last 13 months); current top-10 weight (Slickcharts). Margin-debt history before 2025 and top-10 concentration history are <b>embedded estimates</b> from published references, marked with an <span class="badge est">est. backfill</span> badge — the production pipeline replaces them with FINRA's full file and daily constituent data.</div>
+  </div>
+</section>
+
+<footer>Prototype build · data as of <span id="gendate"></span> · educational use only</footer>
+</div>
+
+<script>
+fetch("data.json").then(r=>r.json()).then(DATA=>{
+
+const META = {
+  cape:      {name:"Shiller CAPE", cat:"Valuation", unit:"×", desc:"10-year inflation-adjusted P/E of the S&P 500. Smooths earnings cycles; the classic long-run valuation yardstick.", blend:true, tr:"level + 3y momentum blend"},
+  household: {name:"Household Equity Allocation", cat:"Flows", unit:"%", desc:"Share of household financial assets held in stocks (Fed Z.1). Historically the best single predictor of 10-year forward returns.", blend:true, tr:"level + 3y momentum blend"},
+  buffett:   {name:"Buffett Indicator", cat:"Valuation", unit:"% of GDP", desc:"Total market value of US corporate equities relative to GDP, vs the last 20 years of its own history.", blend:true, tr:"level + 3y momentum blend"},
+  erp:       {name:"Equity Risk Premium", cat:"Rates-relative", unit:"pp", desc:"CAPE earnings yield minus 10-year Treasury yield. Negative = stocks priced to yield less than bonds — historically rare.", inverted:true, tr:"inverted percentile"},
+  ps:        {name:"Price-to-Sales", cat:"Valuation", unit:"×", desc:"S&P 500 price relative to revenues. Harder to financially engineer than earnings; loudest siren in 2000 and 2021. History starts 2000.", short:true, tr:"percentile"},
+  pe:        {name:"Trailing P/E", cat:"Valuation", unit:"×", desc:"S&P 500 price over last-12-month earnings. Distorted by earnings collapses (2009), hence the lowest valuation weight.", blend:true, tr:"level + 3y momentum blend"},
+  margin:    {name:"Margin Debt", cat:"Leverage", unit:"% of GDP", desc:"FINRA margin debt: level as % of GDP blended 50/50 with 12-month growth. Bubbles show up in leverage acceleration.", est:true, tr:"detrended level + YoY growth"},
+  top10:     {name:"Top-10 Concentration", cat:"Structure", unit:"%", desc:"Weight of the 10 largest stocks in the S&P 500. Extremes marked 1972, 2000, and the current mega-cap era.", est:true, tr:"percentile (20y window)"},
+  trend:     {name:"Trend Deviation", cat:"Technical", unit:"", desc:"How far the S&P 500 sits above its rolling 30-year log-regression trend (percentile of the residual).", tr:"deviation from 30y trend"}
+};
+const ORDER = ["cape","household","buffett","erp","ps","pe","margin","top10","trend"];
+const BANDS = [
+  {max:20, label:"Depressed", color:"var(--green)", c:"#3fb950"},
+  {max:40, label:"Below average", color:"var(--lime)", c:"#a3d94e"},
+  {max:60, label:"Normal", color:"var(--yellow)", c:"#e3b341"},
+  {max:80, label:"Elevated", color:"var(--orange)", c:"#f0883e"},
+  {max:100,label:"Bubble territory", color:"var(--red)", c:"#f85149"}
+];
+const band = v => BANDS.find(b => v <= b.max);
+const last = arr => { for (let i = arr.length-1; i >= 0; i--) if (arr[i][1] != null) return arr[i]; };
+
+/* ---------- gauge ---------- */
+(function(){
+  const svg = document.getElementById("gauge");
+  const cx=180, cy=190, r=150, w=26;
+  const pt = (ang) => [cx + r*Math.cos(Math.PI*(1-ang/100)), cy - r*Math.sin(Math.PI*(1-ang/100))];
+  let segs = "";
+  let prev = 0;
+  BANDS.forEach(b=>{
+    const [x1,y1]=pt(prev), [x2,y2]=pt(b.max);
+    const largeArc = (b.max-prev) > 50 ? 1 : 0;
+    segs += `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" stroke="${b.c}" stroke-width="${w}" fill="none" stroke-linecap="butt"/>`;
+    prev = b.max;
+  });
+  const score = DATA.current.headline;
+  const [nx,ny] = pt(score);
+  const [tx,ty] = [cx + (r-45)*Math.cos(Math.PI*(1-score/100)), cy - (r-45)*Math.sin(Math.PI*(1-score/100))];
+  svg.innerHTML = segs +
+    `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#e6edf3" stroke-width="3.5"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="8" fill="#e6edf3"/>` +
+    `<text x="${cx}" y="${cy-46}" text-anchor="middle" font-size="52" font-weight="700" fill="#e6edf3">${score.toFixed(0)}</text>` +
+    `<text x="${cx}" y="${cy-22}" text-anchor="middle" font-size="13" fill="#8b949e">/ 100</text>` +
+    `<text x="${cx-r}" y="${cy+16}" text-anchor="middle" font-size="11" fill="#8b949e">0</text>` +
+    `<text x="${cx+r}" y="${cy+16}" text-anchor="middle" font-size="11" fill="#8b949e">100</text>`;
+  const b = band(score);
+  document.getElementById("verdict").innerHTML =
+    `<span style="color:${b.c}">${b.label}</span><small>Bubble confidence: <b>${score.toFixed(0)}/100</b> — conditions ${score>=80?"resemble prior bubble peaks (2000, 2021)":score>=60?"are stretched versus history":"are within historical norms"}.</small>`;
+  document.getElementById("pills").innerHTML =
+    `<div class="pill">Weighted composite <b>${DATA.current.composite.toFixed(1)}</b></div>
+     <div class="pill">Median of 9 metrics <b>${DATA.current.median.toFixed(1)}</b></div>
+     <div class="pill">Headline (3-mo smoothed) <b>${DATA.current.headline.toFixed(1)}</b></div>`;
+  document.getElementById("gendate").textContent = DATA.generated;
+})();
+
+/* ---------- shared chart config ---------- */
+Chart.defaults.color = "#8b949e";
+Chart.defaults.borderColor = "#2d333b";
+Chart.defaults.font.size = 11;
+const gridOpts = {color:"#21262d"};
+
+/* ---------- CBBI-style historical chart: rainbow S&P 500 + confidence ---------- */
+const RAINBOW = [[0,[13,84,35]],[25,[63,185,80]],[50,[227,179,65]],[75,[210,80,42]],[100,[80,10,10]]];
+function scoreColor(v){
+  if (v == null) return "#8b949e";
+  v = Math.max(0, Math.min(100, v));
+  let i = 1; while (RAINBOW[i][0] < v) i++;
+  const [v0,c0] = RAINBOW[i-1], [v1,c1] = RAINBOW[i], t = (v - v0) / (v1 - v0);
+  const c = c0.map((x,j)=>Math.round(x + t*(c1[j]-x)));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+let mainChart = null;
+function drawMain(months){
+  const comp = DATA.series.composite, spx = DATA.series.trend.raw;
+  const start = months ? Math.max(0, comp.length - months) : 0;
+  const rows = comp.slice(start);
+  const labels = rows.map(p=>p[0]);
+  const conf = rows.map(p=>p[1]);
+  const px = spx.slice(start).map(p=>p[1]);
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById("compChart"), {
+    type:"line",
+    data:{labels, datasets:[
+      {label:"Bubble confidence", data:conf, yAxisID:"y1", borderWidth:2.8, pointRadius:0, tension:.25,
+       segment:{borderColor:ctx=>scoreColor(conf[ctx.p0DataIndex])}, borderColor:"#8b949e",
+       fill:{target:"origin"}, backgroundColor:"rgba(139,148,158,.06)", order:1},
+      {label:"S&P 500", data:px, yAxisID:"y2", borderWidth:1.2, pointRadius:0, tension:.2,
+       borderColor:"rgba(88,166,255,.38)", fill:false, order:2}
+    ]},
+    options:{maintainAspectRatio:false, animation:false, interaction:{mode:"index", intersect:false},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        label:c=> c.datasetIndex===0? ` S&P 500: ${c.parsed.y?.toLocaleString(undefined,{maximumFractionDigits:0})}` : ` Bubble confidence: ${c.parsed.y?.toFixed(1)} / 100`
+      }}},
+      scales:{
+        y1:{position:"left", min:0, max:100, grid:gridOpts, title:{display:true,text:"Bubble Index",color:"#8b949e"}},
+        y2:{position:"right", type:"logarithmic", grid:{display:false}, title:{display:true,text:"S&P 500 (log)",color:"#8b949e"},
+            ticks:{callback:v=>{const l=Math.log10(v); return Number.isInteger(l)||[2,4,7].some(m=>Math.abs(v/Math.pow(10,Math.floor(l))-m)<.01)? v.toLocaleString():null}}},
+        x:{grid:{display:false}, ticks:{maxTicksLimit:14, callback:function(v){const l=this.getLabelForValue(v); const step = months&&months<=120? 1:5; return l.endsWith("-01")&&l.slice(0,4)%step==0? l.slice(0,4):null}, autoSkip:false}}
+      }
+    }
+  });
+}
+drawMain(0);
+document.querySelectorAll(".zbtn").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll(".zbtn").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    drawMain(+b.dataset.m);
+  };
+});
+document.getElementById("bandsbar").innerHTML = BANDS.map((b,i)=>{
+  const from = i? BANDS[i-1].max:0;
+  return `<div style="width:${b.max-from}%;background:${b.c}">${b.label}</div>`;
+}).join("");
+
+/* ---------- metric cards ---------- */
+const charts = {};
+document.getElementById("cards").innerHTML = ORDER.map(k=>{
+  const m = META[k], s = DATA.series[k];
+  const cur = last(s.score), curRaw = last(s.raw);
+  const b = band(cur[1]);
+  const ath = cur[1] >= 99.75;
+  return `<div class="card">
+    <h3>${m.name}<span class="score" style="background:${b.c}">${cur[1].toFixed(0)}</span></h3>
+    <div class="meta">${m.cat} · weight ${(DATA.weights[k]*100).toFixed(0)}%
+      ${m.blend?'<span class="badge">level + momentum</span>':""}${m.inverted?'<span class="badge">inverted</span>':""}
+      ${m.est?'<span class="badge est">est. backfill</span>':""}${ath?'<span class="badge ath">highest ever</span>':""}</div>
+    <div class="meta">Current: <b style="color:var(--text)">${curRaw[1]}${m.unit? " "+m.unit:""}</b> · as of ${cur[0]}</div>
+    <div class="chartbox"><canvas id="ch_${k}"></canvas></div>
+    <div class="toggle" data-k="${k}">▸ show 0–100 score</div>
+    <div class="desc">${m.desc}</div>
+  </div>`;
+}).join("");
+
+function drawMetric(k, mode){
+  const s = DATA.series[k], m = META[k];
+  const src = mode==="raw"? s.raw : s.score;
+  const scoreArr = s.score.map(p=>p[1]);
+  if (charts[k]) charts[k].destroy();
+  charts[k] = new Chart(document.getElementById("ch_"+k), {
+    type:"line",
+    data:{labels:src.map(p=>p[0]), datasets:[{
+      data:src.map(p=>p[1]), borderWidth:1.7, pointRadius:0, tension:.25, spanGaps:false,
+      // raw view: rainbow line colored by that month's score — the raw data AND how the model reads it
+      segment: mode==="raw"? {borderColor:ctx=>scoreColor(scoreArr[ctx.p0DataIndex])} : undefined,
+      borderColor: mode==="raw"? "#8b949e" : "#58a6ff"
+    }]},
+    options:{maintainAspectRatio:false, animation:false, interaction:{mode:"index", intersect:false},
+      plugins:{legend:{display:false}, tooltip:{callbacks:{
+        label:c=>{
+          const sc = scoreArr[c.dataIndex];
+          const raw = s.raw[c.dataIndex][1];
+          return mode==="raw"
+            ? [` ${raw==null?"—":raw}${m.unit?" "+m.unit:""}`, ` score: ${sc==null?"—":sc.toFixed(0)}/100`]
+            : [` score: ${c.parsed.y?.toFixed(0)}/100`, ` raw: ${raw==null?"—":raw}${m.unit?" "+m.unit:""}`];
+        }}}},
+      scales:{
+        y: mode==="raw"? (k==="trend"? {type:"logarithmic", grid:gridOpts, ticks:{maxTicksLimit:5}} : {grid:gridOpts}) : {min:0,max:100,grid:gridOpts},
+        x:{grid:{display:false}, ticks:{maxTicksLimit:8, callback:function(v){const l=this.getLabelForValue(v); return l.endsWith("-01")&&l.slice(0,4)%10==0? l.slice(0,4):null}, autoSkip:false}}
+      }
+    }
+  });
+}
+ORDER.forEach(k=>drawMetric(k,"raw"));
+document.querySelectorAll(".toggle").forEach(t=>{
+  t.onclick = ()=>{
+    const k = t.dataset.k, toScore = t.textContent.includes("score");
+    drawMetric(k, toScore? "score":"raw");
+    t.textContent = toScore? "▸ show raw values" : "▸ show 0–100 score";
+  };
+});
+
+/* ---------- weights table ---------- */
+document.getElementById("wtable").innerHTML +=
+  ORDER.map(k=>{
+    const m = META[k];
+    return `<tr><td>${m.name}</td><td>${m.cat}</td><td class="num">${(DATA.weights[k]*100).toFixed(0)}%</td><td>${m.tr}</td></tr>`;
+  }).join("");
+
+});</script>
+</body>
+</html>
